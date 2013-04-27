@@ -40,19 +40,27 @@ class RulesEngine {
     }
 
     static List testRuleset(RulesetDelegate rules) {
-        def fails = []
+        List<String> fails = []
         int i = 0
-        rules.tests.each { testData ->
+        rules.tests.each { Map testData ->
             i++
             if (rules.checkRequired(testData.input)) {
                 Map copy = new HashMap(testData.input)
                 rules.runRules(copy)
-                testData.expect.delegate.fact = copy
+                Closure testClosure = testData.expect
+                testClosure.fact = copy
+                testClosure.errors = [] //reset errors before run
                 try {
-                    testData.expect()
-                } catch (AssertionError e) {
-                    fails.add("Test $i\n$e.message" as String)
+                    testClosure()
+                    if (testClosure.errors) {
+                        fails.add("\n-----\nTest $i failed" as String)
+                        fails.addAll(testClosure.errors)
+                        fails.add("Facts: $copy" as String)
+                    }
+                } catch (e) {
+                    fails.add("Test $i failed\n$e.message" as String)
                 }
+
             } else {
                 fails.add(testData.input.error)
             }
